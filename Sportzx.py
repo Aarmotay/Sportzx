@@ -208,12 +208,23 @@ class SportzxClient:
         }
 
         try:
-            r = self.session.post(install_url, json=install_body, headers=install_headers, timeout=self.timeout)
-            r.raise_for_status()
-            auth_token = r.json()["authToken"]["token"]
-        except Exception as e:
-            print(f"Firebase Install error: {e}")
-            return None
+    r = self.session.post(
+        install_url,
+        json=install_body,
+        headers=install_headers,
+        timeout=self.timeout
+    )
+
+    print(f"Firebase Install HTTP status: {r.status_code}")
+    print(f"Firebase Install response: {r.text[:2000]}")
+
+    r.raise_for_status()
+
+    auth_token = r.json()["authToken"]["token"]
+
+except Exception as e:
+    print(f"Firebase Install error: {e}")
+    return None
 
         config_url = "https://firebaseremoteconfig.googleapis.com/v1/projects/446339309956/namespaces/firebase:fetch"
         config_headers = {
