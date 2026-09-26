@@ -208,23 +208,23 @@ class SportzxClient:
         }
 
         try:
-    r = self.session.post(
-        install_url,
-        json=install_body,
-        headers=install_headers,
-        timeout=self.timeout
-    )
+            r = self.session.post(
+                install_url,
+                json=install_body,
+                headers=install_headers,
+                timeout=self.timeout
+            )
 
-    print(f"Firebase Install HTTP status: {r.status_code}")
-    print(f"Firebase Install response: {r.text[:2000]}")
+            print(f"Firebase Install HTTP status: {r.status_code}")
+            print(f"Firebase Install response: {r.text[:2000]}")
 
-    r.raise_for_status()
+            r.raise_for_status()
 
-    auth_token = r.json()["authToken"]["token"]
+            auth_token = r.json()["authToken"]["token"]
 
-except Exception as e:
-    print(f"Firebase Install error: {e}")
-    return None
+        except Exception as e:
+            print(f"Firebase Install error: {e}")
+            return None
 
         config_url = "https://firebaseremoteconfig.googleapis.com/v1/projects/446339309956/namespaces/firebase:fetch"
         config_headers = {
@@ -329,9 +329,9 @@ except Exception as e:
 
         return channels_list
 
-    # ───────────────────────────────────────────────────────────────[...]
+    # ───────────────────────────────────────────────────────────────
     # Funzione per aumentare l'orario di +1 ora (solo HH:MM)
-    # ───────────────────────────────────────────────────────────────[...]
+    # ───────────────────────────────────────────────────────────────
     def _increase_time_by_one_hour(self, time_str: str) -> str:
         if not time_str or len(time_str) < 5 or ':' not in time_str:
             return time_str
