@@ -5,7 +5,7 @@ import re
 import os
 from typing import List, Optional
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 APP_PASSWORD = "oAR80SGuX3EEjUGFRwLFKBTiris="
 
@@ -71,7 +71,88 @@ class SportzxClient:
             acc = u32(acc + 7)
 
         return bytes(key), bytes(iv)
+    def _parse_event_datetime(self, value):
+    if not value:
+        return None
 
+    try:
+        value = str(value).strip()
+
+        # ISO-8601 UTC
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
+
+        dt = datetime.fromisoformat(value)
+
+        # If API gives a timezone-less value, treat it as UTC.
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        return dt.astimezone(timezone.utc)
+
+    except (ValueError, TypeError):
+        return None
+
+
+    def _is_current_or_upcoming(self, event, upcoming_days=14, live_grace_hours=4):
+    """
+    Keep:
+      - currently live events
+      - upcoming events for the next 14 days
+      - recently-started events for up to 4 hours
+
+    Reject:
+      - old historical events
+      - events with unusable dates
+    """
+
+    if not isinstance(event, dict):
+        return False
+
+    info = event.get("eventInfo") or {}
+
+    # Some APIs expose status at either level.
+    status = str(
+        info.get("status")
+        or event.get("status")
+        or ""
+    ).strip().lower()
+
+    live_statuses = {
+        "live",
+        "ongoing",
+        "in progress",
+        "in_progress",
+        "started",
+        "playing"
+    }
+
+    if status in live_statuses:
+        return True
+
+    start_value = (
+        info.get("startTime")
+        or event.get("startTime")
+        or info.get("start")
+    )
+
+    start = self._parse_event_datetime(start_value)
+
+    if start is None:
+        # Don't blindly include events whose date cannot be understood.
+        return False
+
+    now = datetime.now(timezone.utc)
+
+    # Recently started = probably still live.
+    if start <= now <= start + timedelta(hours=live_grace_hours):
+        return True
+
+    # Upcoming window.
+    if now < start <= now + timedelta(days=upcoming_days):
+        return True
+
+    return False
     def _decrypt_data(self, b64_data: str) -> str:
         if not b64_data.strip():
             return ""
