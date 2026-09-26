@@ -263,8 +263,13 @@ class SportzxClient:
             events = []
 
         valid_events = [
-            e for e in events
-            if isinstance(e, dict) and e.get("cat") and e["cat"].lower() not in self.excluded_categories
+    e for e in events
+    if (
+        isinstance(e, dict)
+        and e.get("cat")
+        and e["cat"].lower() not in self.excluded_categories
+        and self._is_current_or_upcoming(e)
+    )
         ]
 
         for event in valid_events:
