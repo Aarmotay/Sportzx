@@ -71,88 +71,89 @@ class SportzxClient:
             acc = u32(acc + 7)
 
         return bytes(key), bytes(iv)
+
     def _parse_event_datetime(self, value):
-    if not value:
-        return None
+        if not value:
+            return None
 
-    try:
-        value = str(value).strip()
+        try:
+            value = str(value).strip()
 
-        # ISO-8601 UTC
-        if value.endswith("Z"):
-            value = value[:-1] + "+00:00"
+            # ISO-8601 UTC
+            if value.endswith("Z"):
+                value = value[:-1] + "+00:00"
 
-        dt = datetime.fromisoformat(value)
+            dt = datetime.fromisoformat(value)
 
-        # If API gives a timezone-less value, treat it as UTC.
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            # If API gives a timezone-less value, treat it as UTC.
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
 
-        return dt.astimezone(timezone.utc)
+            return dt.astimezone(timezone.utc)
 
-    except (ValueError, TypeError):
-        return None
-
+        except (ValueError, TypeError):
+            return None
 
     def _is_current_or_upcoming(self, event, upcoming_days=14, live_grace_hours=4):
-    """
-    Keep:
-      - currently live events
-      - upcoming events for the next 14 days
-      - recently-started events for up to 4 hours
+        """
+        Keep:
+          - currently live events
+          - upcoming events for the next 14 days
+          - recently-started events for up to 4 hours
 
-    Reject:
-      - old historical events
-      - events with unusable dates
-    """
+        Reject:
+          - old historical events
+          - events with unusable dates
+        """
 
-    if not isinstance(event, dict):
+        if not isinstance(event, dict):
+            return False
+
+        info = event.get("eventInfo") or {}
+
+        # Some APIs expose status at either level.
+        status = str(
+            info.get("status")
+            or event.get("status")
+            or ""
+        ).strip().lower()
+
+        live_statuses = {
+            "live",
+            "ongoing",
+            "in progress",
+            "in_progress",
+            "started",
+            "playing"
+        }
+
+        if status in live_statuses:
+            return True
+
+        start_value = (
+            info.get("startTime")
+            or event.get("startTime")
+            or info.get("start")
+        )
+
+        start = self._parse_event_datetime(start_value)
+
+        if start is None:
+            # Don't blindly include events whose date cannot be understood.
+            return False
+
+        now = datetime.now(timezone.utc)
+
+        # Recently started = probably still live.
+        if start <= now <= start + timedelta(hours=live_grace_hours):
+            return True
+
+        # Upcoming window.
+        if now < start <= now + timedelta(days=upcoming_days):
+            return True
+
         return False
 
-    info = event.get("eventInfo") or {}
-
-    # Some APIs expose status at either level.
-    status = str(
-        info.get("status")
-        or event.get("status")
-        or ""
-    ).strip().lower()
-
-    live_statuses = {
-        "live",
-        "ongoing",
-        "in progress",
-        "in_progress",
-        "started",
-        "playing"
-    }
-
-    if status in live_statuses:
-        return True
-
-    start_value = (
-        info.get("startTime")
-        or event.get("startTime")
-        or info.get("start")
-    )
-
-    start = self._parse_event_datetime(start_value)
-
-    if start is None:
-        # Don't blindly include events whose date cannot be understood.
-        return False
-
-    now = datetime.now(timezone.utc)
-
-    # Recently started = probably still live.
-    if start <= now <= start + timedelta(hours=live_grace_hours):
-        return True
-
-    # Upcoming window.
-    if now < start <= now + timedelta(days=upcoming_days):
-        return True
-
-    return False
     def _decrypt_data(self, b64_data: str) -> str:
         if not b64_data.strip():
             return ""
@@ -263,13 +264,13 @@ class SportzxClient:
             events = []
 
         valid_events = [
-    e for e in events
-    if (
-        isinstance(e, dict)
-        and e.get("cat")
-        and e["cat"].lower() not in self.excluded_categories
-        and self._is_current_or_upcoming(e)
-    )
+            e for e in events
+            if (
+                isinstance(e, dict)
+                and e.get("cat")
+                and e["cat"].lower() not in self.excluded_categories
+                and self._is_current_or_upcoming(e)
+            )
         ]
 
         for event in valid_events:
@@ -317,9 +318,9 @@ class SportzxClient:
 
         return channels_list
 
-    # ────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────[...]
     # Funzione per aumentare l'orario di +1 ora (solo HH:MM)
-    # ────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────[...]
     def _increase_time_by_one_hour(self, time_str: str) -> str:
         if not time_str or len(time_str) < 5 or ':' not in time_str:
             return time_str
